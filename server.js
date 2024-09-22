@@ -1,34 +1,61 @@
 const express = require('express');
+const path = require('path');
+const bodyParser = require('body-parser');
+const fs = require('fs');
 
-let ourApp = express();
+const app = express();
+app.use(express.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-ourApp.use(express.urlencoded({extebed:false}));
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
-ourApp.get('/', (req, res)=>{
-    res.send(`
-    <form action="/answer" method="POST">
-        <p>What color is the sky on a clear and sunny day?</p>
-        <input name="skyColor" autocomplete="off">
-        <button>Submit Answer</button>
-    </form>
-    `);
+// Serve the interface.html file
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'interface.html'));
 });
 
-ourApp.post("/answer", (req, res)=>{
-    if(req.body.skyColor.toUpperCase()=='BLUE')
-    {
-        res.send(`
-        <p>Congrats, that is the correct answer!</p>
-        <a href="/">Back to homepage</a>
-            `);
+// Path to the JSON file
+const dataFilePath = path.join(__dirname, 'todoItems.json');
+
+// Function to read data from the JSON file
+const readData = () => {
+    if (!fs.existsSync(dataFilePath)) {
+        return [];
     }
-    else{
-        res.send(`
-        <p>Sorry, that is incorrect.</p>
-        <a href="/">Back to homepage</a>
-        `);
-    }
+    const data = fs.readFileSync(dataFilePath);
+    return JSON.parse(data);
+};
+
+// Function to write data to the JSON file
+const writeData = (data) => {
+    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
+};
+
+// Route to get all to-do items
+app.get('/items', (req, res) => {
+    const todoItems = readData();
+    res.json(todoItems);
 });
 
+// Route to create a new to-do item
+app.post('/create-item', (req, res) => {
+    const todoItems = readData();
+    const newItem = req.body.item;
+    todoItems.push(newItem);
+    writeData(todoItems);
+    res.json({ message: 'Item added successfully' });
+});
 
-ourApp.listen(3000);
+// Route to delete a to-do item
+app.post('/delete-item', (req, res) => {
+    let todoItems = readData();
+    const itemToDelete = req.body.item;
+    todoItems = todoItems.filter(item => item !== itemToDelete);
+    writeData(todoItems);
+    res.json({ message: 'Item deleted successfully' });
+});
+
+app.listen(3000, () => {
+    console.log('Server is running on http://localhost:3000');
+});
